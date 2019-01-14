@@ -1,0 +1,6 @@
+version "3.7"
+
+#include "scripts/libraries/mk_rotation.txt"
+#include "scripts/libraries/DrawToHUD.txt"
+#include "scripts/eventhandlers/scannerhandler.txt"
+#include "scripts/items/scanner.txt"

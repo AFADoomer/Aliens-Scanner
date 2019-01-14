@@ -1,0 +1,43 @@
+class AlienScanner : CustomInventory
+{
+	bool active;
+
+	Default
+	{
+		Scale 0.5;
+		Inventory.Icon "SCNRA0";
+		Inventory.PickupMessage "Picked up a Motion Scanner";
+		Inventory.MaxAmount 1;
+		+INVENTORY.INVBAR
+	}
+
+	States
+	{
+		Spawn:
+			SCNR P -1;
+			Stop;
+		Use:
+			TNT1 A 0 { invoker.active = !invoker.active; }
+			Fail;
+	}
+
+	override Inventory CreateTossable(int amt)
+	{
+		active = false;
+		return Super.CreateTossable(amt);
+	}
+
+	static void ForceActivate(Actor owner, bool activate)
+	{
+		if (owner && owner.player)
+		{
+			Inventory scanneritem = owner.FindInventory("AlienScanner");
+
+			if (scanneritem)
+			{
+				AlienScanner scanner = AlienScanner(scanneritem);
+				scanner.active = activate;
+			}
+		}
+	}
+}

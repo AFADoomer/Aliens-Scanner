@@ -1,0 +1,11 @@
+ZScript
+- Scanner script - AFADoomer, with vector positioning logic from Talon1024
+- DrawToHUD library - AFADoomer
+- Shape Rotation library - Marisa Kirisame - from https://forum.zdoom.org/viewtopic.php?f=122&t=61944&p=1071848
+
+Graphics - AFADoomer
+Sprite - modified by AFADoomer from photo here: http://avp.wikia.com/wiki/M314_Motion_Tracker?file=Master_Replicas_MT.jpg
+
+Motion Tracker Sound - modified by AFADoomer from ringtone here: https://www.zedge.net/ringtone/3a3d68f4-10f0-328c-a2bb-5d039777eec9
+
+Fonts - from http://bmf.php5.cz/?font=arb6 and http://bmf.php5.cz/?font=ari14

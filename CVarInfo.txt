@@ -1,0 +1,3 @@
+user int as_posx = -140;
+user int as_posy = 140;
+user float as_scale = 1.0;

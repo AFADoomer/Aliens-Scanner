@@ -1,0 +1,7 @@
+scanner/default		scan_0
+scanner/dist5		scan_1
+scanner/dist4		scan_2
+scanner/dist3		scan_3
+scanner/dist2		scan_4
+scanner/dist1		scan_5
+scanner/dist0		scan_6

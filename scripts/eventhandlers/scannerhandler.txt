@@ -1,0 +1,271 @@
+class ScannerIcon
+{
+	Actor mo;
+	String icon;
+	double alpha;
+	Vector3 pos;
+}
+
+class ScannerHandler : EventHandler
+{
+	const scannerRadius = 140.0;
+	const scannerIconSize = 32.0;
+	const distFactor = 0.1;
+	const flashtime = 10;
+	const flashperiod = 35;
+
+	Array<ScannerIcon> ScannerItems;
+	double scannerx, scannery, scale, drawflash;
+	bool rotate;
+	Font ScannerSmall, ScannerBig;
+	CVar posx, posy, scaleamt;
+
+	ui double flashphase;
+	ui ScannerIcon closest;
+	ui double range;
+	ui Vector2 scanorigin;
+	ui double scanoriginangle;
+
+	uint FindScannerItem(Actor mo) // Helper function to find a thing in a child class (Used in place of ScannerItems.Find(mo) since the mo is nested in a ScannerIcon object
+	{
+		for (int i = 0; i < ScannerItems.Size(); i++)
+		{
+			if (ScannerItems[i] && ScannerItems[i].mo == mo) { return i; }
+		}
+		return ScannerItems.Size();
+	}
+
+	void Add(Actor thing, String iconName = "")
+	{
+		if (!thing) { return; }
+
+		int i = FindScannerItem(thing);
+		if (i == ScannerItems.Size()) // If it's already there, skip it
+		{
+			ScannerIcon item = New("ScannerIcon");
+			item.mo = thing;
+			item.icon = iconName;
+			item.alpha = 0.0;
+			item.pos = thing.pos;
+
+			ScannerItems.Push(item);
+		}
+	}
+
+	override void OnRegister()
+	{
+		rotate = true;
+
+		ScannerSmall = Font.GetFont("arb6");
+		ScannerBig = Font.GetFont("ari14");
+
+		posx = CVar.FindCVar("as_posx");
+		posy = CVar.FindCVar("as_posy");
+		scaleamt = CVar.FindCVar("as_scale");
+	}
+
+	override void WorldTick()
+	{
+		if (level.time % flashperiod == 0) { drawflash = level.time; }
+
+		if (posx) { scannerx = posx.GetInt(); } else { scannerx = -140.0; }
+		if (posy) { scannery = posy.GetInt(); } else { scannery = 140.0; }
+		if (scaleamt) { scale = scaleamt.GetFloat(); } else { scale = 1.0; }
+
+		if (level.time > drawflash)
+		{
+			for (int i = 0; i < ScannerItems.Size(); i++)
+			{
+				if (ScannerItems[i].alpha)
+				{
+					ScannerItems[i].alpha = max(ScannerItems[i].alpha - 0.04, 0);
+				}
+			}
+		}
+	}
+
+	override void WorldThingSpawned(WorldEvent e)
+	{
+		if (e.Thing.bIsMonster || e.Thing.bMissile) { Add(e.Thing, "Blip"); }
+	}
+
+	override void WorldThingDestroyed(WorldEvent e)
+	{
+		int i = FindScannerItem(e.Thing);
+
+		if (i < ScannerItems.Size())
+		{
+			ScannerItems[i].Destroy();
+			ScannerItems.Delete(i, 1);
+			ScannerItems.ShrinkToFit();
+		}		
+	}
+
+	override void RenderOverlay( RenderEvent e )
+	{
+		PlayerInfo p = players[consoleplayer];
+
+		if (!p || !p.mo) { return; }
+
+		double offsetx = scannerx * scale;
+		double offsety = scannery * scale;
+
+		AlienScanner scanner = AlienScanner(p.mo.FindInventory("AlienScanner"));
+
+		if (scanner && scanner.active && screenblocks < 12 && !automapactive) // Hide the scanner when HUD is hidden or when automap is turned on
+		{
+			// Find scanner and background textures
+			TextureID scannershade = TexMan.CheckForTexture("graphics/ScannerShade.png", TexMan.Type_Any);
+			TextureID scannerbg = TexMan.CheckForTexture("graphics/ScannerBkg.png", TexMan.Type_Any);
+			TextureID scannerflash = TexMan.CheckForTexture("graphics/Pulse.png", TexMan.Type_Any);
+			TextureID scannerstrip = TexMan.CheckForTexture("graphics/ScannerStrip.png", TexMan.Type_Any);
+
+			double scanneralpha = (1.0 - p.BlendA); // Fade the scanner if there's a screen blend/fade in effect
+
+			if (scanorigin == (0, 0))
+			{
+				scanorigin = e.ViewPos.xy;
+				scanoriginangle = e.ViewAngle;
+			}
+
+			if (rotate) { scanoriginangle = e.ViewAngle; }
+
+			DrawToHUD.SetClipRect(offsetx - scannerRadius * scale, offsety - scannerRadius * scale, scannerRadius * scale * 2, (scannerRadius + 42) * scale);
+
+			DrawToHUD.DrawTexture(scannershade, (offsetx, offsety), scanneralpha, 2.0 * scale);
+
+			DrawToHUD.SetClipRect(offsetx - scannerRadius * scale, offsety - scannerRadius * scale, scannerRadius * scale * 2, (scannerRadius + 2) * scale);
+
+			// Draw the background scanner circle
+			if (rotate) { DrawToHUD.DrawShapeTexture(scannerbg, (offsetx, offsety), scanneralpha, e.ViewAngle - 90, scale); } // Use player angle, offset so that 90 degrees on the map is shown as north
+			else { DrawToHUD.DrawTexture(scannerbg, (offsetx, offsety), scanneralpha, scale); }
+
+			if (closest && closest.mo && (!closest.mo.bShootable || closest.mo.health < 0)) { closest.mo = null; }
+
+			// Draw icons
+			for (int i = 0; i < ScannerItems.Size(); i++)
+			{
+				Actor mo = ScannerItems[i].mo;
+				if (!mo) { continue; }
+				if (mo is "Inventory" && Inventory(mo).Owner) { continue; }
+				if (mo.bDormant || mo.health <= 0) { continue; }
+
+				TextureID icon = TexMan.CheckForTexture(ScannerItems[i].icon, TexMan.Type_Any);
+				Vector2 relativeLocation = level.Vec2Diff(scanorigin, ScannerItems[i].pos.xy);
+
+				// Account for chasecam
+				if (p.cheats & CF_CHASECAM != 0)
+				{
+					CVar chaseDist = CVar.GetCVar("chase_dist", p);
+					Vector2 chaseDiff = Actor.AngleToVector(scanoriginangle, chaseDist.GetFloat() * cos(e.ViewPitch));
+					relativeLocation -= chaseDiff;
+				}
+
+				relativeLocation.Y *= -1;
+
+				relativeLocation = Actor.RotateVector(relativeLocation, scanoriginangle - 90);
+
+				double pointradius = (scannerRadius - scannerIconSize) * scale;
+
+				double dist = relativeLocation.Length();
+
+				if (!ScannerItems[i].alpha && mo.pos == ScannerItems[i].pos) { continue; } // Not moving
+				else if (dist * distFactor > pointRadius * flashphase)  // Out of range
+				{
+					if (closest && mo == closest.mo) { closest.mo = null; }
+					continue;
+				}
+				else
+				{
+					if (drawflash == level.time - flashperiod) { ScannerItems[i].pos = mo.pos; }
+
+					if (flashphase < 1.0)
+					{
+						ScannerItems[i].alpha = 1.0;
+						if (mo.bIsMonster && (!closest || !closest.mo || dist < (scanorigin - closest.pos.xy).Length()))
+						{
+							if (!closest) { closest = New('ScannerIcon'); }
+
+							closest.mo = ScannerItems[i].mo;
+							closest.pos = ScannerItems[i].pos;
+						}
+					}
+				}
+
+				double iconX = offsetx + relativeLocation.X * distFactor * scale;
+				double iconY = offsety + relativeLocation.Y * distFactor * scale;
+
+				// Get the image size and scale it down if necessary
+				Vector2 size = TexMan.GetScaledSize(icon);
+				double maxsize = max(size.x, size.y);
+				double iconscale = 1.0;
+
+				// Scale the image down to the max icon size set in constant above.  Smaller images will stay as they are
+				if (maxsize > scannerIconSize) { iconscale = scannerIconSize / maxsize; }
+
+				// If it's the default 'dot' icon...
+				if (ScannerItems[i].icon == "Blip")
+				{
+					// Scale the icon based on size (radius) of the actor
+					iconscale *= mo.radius / scannerIconSize;
+				}
+
+				// Draw the icon
+				DrawToHUD.DrawTexture(icon, (iconX, iconY), ScannerItems[i].alpha * scanneralpha, iconscale * scale);
+
+				// Brighten as appropriate
+				if (flashphase) { DrawToHUD.DrawTexture(icon, (iconX, iconY), ScannerItems[i].alpha * scanneralpha / flashphase, iconscale * scale, color(255, 255, 255)); }
+			}
+
+			if (drawflash > level.time - flashperiod)
+			{
+				flashphase = (level.time - drawflash) / flashtime;
+
+				double flashalpha;
+
+				if (flashphase < 0.25) { flashalpha = flashphase / 0.25; } // Fade in
+				else if (flashphase < 0.5) { flashalpha = 1.0; } // Hold
+				else { flashalpha = 1.0 - (flashphase - 0.5); } // Fade out
+
+				// Draw the scan sweep
+				DrawToHUD.DrawTexture(scannerflash, (offsetx, offsety), scanneralpha * flashalpha, flashphase * 0.5 * scale);
+				DrawToHUD.DrawTexture(scannerflash, (offsetx, offsety), scanneralpha * flashalpha, flashphase * 0.5 * scale, color(255, 255, 255));
+			}
+
+			if (closest && closest.mo && closest.mo.bShootable && closest.mo.health > 0) { range = (scanorigin - closest.pos.xy).Length() * 0.0234375; }
+			else { range = 0; }
+
+			if (drawflash == level.time - flashperiod)
+			{
+				Sound ping = "scanner/default";
+
+				if (range && range < 15)
+				{
+					int pitch = clamp(int(sin(range) * 20), 0, 5);
+
+					ping = "scanner/dist" .. pitch;
+				}
+
+				p.mo.A_PlaySound(ping, CHAN_7, 0.7, false, ATTN_STATIC);
+
+				scanorigin = e.ViewPos.xy;
+				scanoriginangle = e.ViewAngle; 
+			}
+
+			Screen.ClearClipRect();
+
+			DrawToHUD.DrawTexture(scannerstrip, (offsetx, offsety), scanneralpha * 0.7, scale);
+
+			DrawToHUD.DrawText(String.Format("%i", range), (offsetx, offsety + 4 * scale), ScannerBig, scanneralpha * 0.9, scale * 0.9, Font.CR_RED, DrawToHUD.right);
+
+			Array<String> d;
+			String.Format("%0.2f", range).Split(d, ".");
+
+			DrawToHUD.DrawText(d[1], (offsetx + 4 * scale, offsety + 6 * scale), ScannerSmall, scanneralpha * 0.9, scale, Font.CR_RED);
+			DrawToHUD.DrawText("m", (offsetx + 16 * scale, offsety + 14 * scale), ScannerSmall, scanneralpha * 0.9, scale * 0.7, Font.CR_RED);
+
+			DrawToHUD.DrawText(String.Format("FEMS.%02i.%03i.", (level.time / 35) % 100, (level.time / 10) % 1000), (offsetx - 116 * scale, offsety + 12 * scale), ScannerSmall, scanneralpha * 0.9, scale * 0.8, Font.CR_WHITE);
+			DrawToHUD.DrawText(String.Format("CX.%03i/%03i.", level.killed_monsters, level.total_monsters), (offsetx + 44 * scale, offsety + 12 * scale), ScannerSmall, scanneralpha * 0.9, scale * 0.8, Font.CR_WHITE);
+		}
+	}
+}
