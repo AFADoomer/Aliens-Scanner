@@ -1,5 +1,5 @@
 ZScript
-- Scanner script - AFADoomer, with vector positioning logic from Talon1024
+- Scanner script - AFADoomer, original base concept and vector positioning logic from Talon1024's original Blade of Agony Compass code
 - DrawToHUD library - AFADoomer
 - Shape Rotation library - Marisa Kirisame - from https://forum.zdoom.org/viewtopic.php?f=122&t=61944&p=1071848
 

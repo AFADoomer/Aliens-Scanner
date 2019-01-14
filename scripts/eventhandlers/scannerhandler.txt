@@ -165,14 +165,14 @@ class ScannerHandler : EventHandler
 
 				relativeLocation = Actor.RotateVector(relativeLocation, scanoriginangle - 90);
 
-				double pointradius = (scannerRadius - scannerIconSize) * scale;
+				double pointradius = scannerRadius * scale;
 
 				double dist = relativeLocation.Length();
 
 				if (!ScannerItems[i].alpha && mo.pos == ScannerItems[i].pos) { continue; } // Not moving
 				else if (dist * distFactor > pointRadius * flashphase)  // Out of range
 				{
-					if (closest && mo == closest.mo) { closest.mo = null; }
+					if (flashphase == 1.0 && closest && mo == closest.mo) { closest.mo = null; }
 					continue;
 				}
 				else
