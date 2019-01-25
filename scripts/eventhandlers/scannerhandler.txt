@@ -25,6 +25,7 @@ class ScannerHandler : EventHandler
 	ui double range;
 	ui Vector2 scanorigin;
 	ui double scanoriginangle;
+	ui int count;
 
 	uint FindScannerItem(Actor mo) // Helper function to find a thing in a child class (Used in place of ScannerItems.Find(mo) since the mo is nested in a ScannerIcon object
 	{
@@ -142,6 +143,8 @@ class ScannerHandler : EventHandler
 
 			if (closest && closest.mo && (!closest.mo.bShootable || closest.mo.health < 0)) { closest.mo = null; }
 
+			int currentcount = 0;
+
 			// Draw icons
 			for (int i = 0; i < ScannerItems.Size(); i++)
 			{
@@ -203,7 +206,7 @@ class ScannerHandler : EventHandler
 				// Scale the image down to the max icon size set in constant above.  Smaller images will stay as they are
 				if (maxsize > scannerIconSize) { iconscale = scannerIconSize / maxsize; }
 
-				// If it's the default 'dot' icon...
+				// If it's the default icon...
 				if (ScannerItems[i].icon == "Blip")
 				{
 					// Scale the icon based on size (radius) of the actor
@@ -215,6 +218,8 @@ class ScannerHandler : EventHandler
 
 				// Brighten as appropriate
 				if (flashphase) { DrawToHUD.DrawTexture(icon, (iconX, iconY), ScannerItems[i].alpha * scanneralpha / flashphase, iconscale * scale, color(255, 255, 255)); }
+
+				if (flashphase == 1.0 && mo.bCountKill) { currentcount++; }
 			}
 
 			if (drawflash > level.time - flashperiod)
@@ -230,6 +235,8 @@ class ScannerHandler : EventHandler
 				// Draw the scan sweep
 				DrawToHUD.DrawTexture(scannerflash, (offsetx, offsety), scanneralpha * flashalpha, flashphase * 0.5 * scale);
 				DrawToHUD.DrawTexture(scannerflash, (offsetx, offsety), scanneralpha * flashalpha, flashphase * 0.5 * scale, color(255, 255, 255));
+
+				if (flashphase == 1.0) { count = currentcount; }
 			}
 
 			if (closest && closest.mo && closest.mo.bShootable && closest.mo.health > 0) { range = (scanorigin - closest.pos.xy).Length() * 0.0234375; }
@@ -249,23 +256,23 @@ class ScannerHandler : EventHandler
 				p.mo.A_PlaySound(ping, CHAN_7, 0.7, false, ATTN_STATIC);
 
 				scanorigin = e.ViewPos.xy;
-				scanoriginangle = e.ViewAngle; 
+				scanoriginangle = e.ViewAngle;
 			}
 
 			Screen.ClearClipRect();
 
 			DrawToHUD.DrawTexture(scannerstrip, (offsetx, offsety), scanneralpha * 0.7, scale);
 
-			DrawToHUD.DrawText(String.Format("%i", range), (offsetx, offsety + 4 * scale), ScannerBig, scanneralpha * 0.9, scale * 0.9, Font.CR_RED, DrawToHUD.right);
+			DrawToHUD.DrawText(String.Format("%i", range), (offsetx, offsety + 3 * scale), ScannerBig, scanneralpha * 0.9, scale * 0.9, Font.CR_RED, DrawToHUD.right);
 
 			Array<String> d;
 			String.Format("%0.2f", range).Split(d, ".");
 
-			DrawToHUD.DrawText(d[1], (offsetx + 4 * scale, offsety + 6 * scale), ScannerSmall, scanneralpha * 0.9, scale, Font.CR_RED);
-			DrawToHUD.DrawText("m", (offsetx + 16 * scale, offsety + 14 * scale), ScannerSmall, scanneralpha * 0.9, scale * 0.7, Font.CR_RED);
+			DrawToHUD.DrawText(d[1], (offsetx + 4 * scale, offsety + 5 * scale), ScannerSmall, scanneralpha * 0.9, scale, Font.CR_RED);
+			DrawToHUD.DrawText("m", (offsetx + 16 * scale, offsety + 13 * scale), ScannerSmall, scanneralpha * 0.9, scale * 0.7, Font.CR_RED);
 
-			DrawToHUD.DrawText(String.Format("FEMS.%02i.%03i.", (level.time / 35) % 100, (level.time / 10) % 1000), (offsetx - 116 * scale, offsety + 12 * scale), ScannerSmall, scanneralpha * 0.9, scale * 0.8, Font.CR_WHITE);
-			DrawToHUD.DrawText(String.Format("CX.%03i/%03i.", level.killed_monsters, level.total_monsters), (offsetx + 44 * scale, offsety + 12 * scale), ScannerSmall, scanneralpha * 0.9, scale * 0.8, Font.CR_WHITE);
+			DrawToHUD.DrawText(String.Format("FEMS.%i.%03i.%02i.", (p.mo.pos.x / 100) % 10, p.mo.pos.y % 1000, p.mo.pos.x % 100), (offsetx - 116 * scale, offsety + 12 * scale), ScannerSmall, scanneralpha * 0.9, scale * 0.8, Font.CR_WHITE);
+			DrawToHUD.DrawText(String.Format("CX.%03i/%03i.", count, level.total_monsters - level.killed_monsters), (offsetx + 44 * scale, offsety + 12 * scale), ScannerSmall, scanneralpha * 0.9, scale * 0.8, Font.CR_WHITE);
 		}
 	}
 }
